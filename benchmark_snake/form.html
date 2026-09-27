@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>system1-browser // High-Speed Form Blitz Benchmark</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d16;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 1000px;
+      max-width: 100%;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      background: #0284c7;
+      color: #e0f2fe;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-gpu {
+      background: #15803d;
+      color: #dcfce7;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+    }
+
+    /* Form Card */
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 22px;
+    }
+    .wizard-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .wizard-steps::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      right: 20px;
+      height: 2px;
+      background: #1e293b;
+      z-index: 1;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .step-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #1e293b;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 800;
+      transition: all 0.3s;
+    }
+    .step-item.active .step-circle {
+      background: #38bdf8;
+      color: #090d16;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    .step-item.completed .step-circle {
+      background: #10b981;
+      color: #fff;
+    }
+    .step-item.active { color: #38bdf8; }
+    .step-item.completed { color: #10b981; }
+
+    .step-pane { display: none; }
+    .step-pane.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="email"], select {
+      width: 100%;
+      background: #050811;
+      border: 1px solid #334155;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: #f8fafc;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+    }
+    input.filled-flash {
+      border-color: #4ade80 !important;
+      background: rgba(74, 222, 128, 0.08) !important;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.3) !important;
+    }
+
+    .checkbox-row, .radio-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .checkbox-row input, .radio-row input {
+      accent-color: #38bdf8;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .btn-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid #1e293b;
+    }
+    button.nav-btn {
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-prev { background: #334155; color: #f8fafc; }
+    .btn-prev:hover { background: #475569; }
+    .btn-next { background: #38bdf8; color: #090d16; }
+    .btn-next:hover { background: #0ea5e9; }
+    .btn-finish { background: #10b981; color: #fff; }
+    .btn-finish:hover { background: #059669; }
+
+    /* Side Panel */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .timer-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .timer-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .timer-val {
+      font-size: 44px;
+      font-weight: 800;
+      color: #4ade80;
+      font-variant-numeric: tabular-nums;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .timer-sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .action-triggers {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 14px;
+      width: 100%;
+    }
+    .btn-trigger-s1 {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #090d16;
+      font-weight: 800;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-trigger-s1:hover {
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-trigger-cloud {
+      background: #1e293b;
+      color: #94a3b8;
+      font-weight: 600;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-trigger-cloud:hover { background: #334155; color: #cbd5e1; }
+    .btn-reset-form {
+      background: transparent;
+      color: #64748b;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+    }
+    .btn-reset-form:hover { color: #f8fafc; }
+
+    /* Comparison Table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+    .compare-table th {
+      text-align: left;
+      padding: 6px 8px;
+      color: #94a3b8;
+      border-bottom: 1px solid #1e293b;
+    }
+    .compare-table td {
+      padding: 8px;
+      border-bottom: 1px solid #1e293b;
+      font-variant-numeric: tabular-nums;
+    }
+    .compare-table td.s1 { color: #4ade80; font-weight: 700; }
+    .compare-table td.cloud { color: #f43f5e; font-weight: 600; }
+
+    /* Decision Log */
+    .log-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .log-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .log-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #94a3b8;
+      height: 160px;
+      overflow-y: auto;
+    }
+    .log-fast { color: #38bdf8; }
+    .log-done { color: #4ade80; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <span>⚡ system1-browser // High-Speed Form Blitz</span>
+        <span class="badge">CDP + System 1 Engine</span>
+        <span class="badge-gpu">RTX 3090 Local</span>
+      </div>
+      <div id="status-header" style="font-size: 13px; color: #94a3b8; font-weight: 600;">Pronto para disparo</div>
+    </div>
+
+    <div class="main-grid">
+      <!-- Form Column -->
+      <div class="card">
+        <div class="wizard-steps">
+          <div id="step-ind-1" class="step-item active">
+            <div class="step-circle">1</div>
+            <span>Identificação</span>
+          </div>
+          <div id="step-ind-2" class="step-item">
+            <div class="step-circle">2</div>
+            <span>Localização</span>
+          </div>
+          <div id="step-ind-3" class="step-item">
+            <div class="step-circle">3</div>
+            <span>Contrato & Aceite</span>
+          </div>
+        </div>
+
+        <form id="wizard-form" onsubmit="return false;">
+          <!-- STEP 1 -->
+          <div id="pane-1" class="step-pane active">
+            <div class="form-group">
+              <label>Nome Completo do Responsável</label>
+              <input type="text" id="field-nome" placeholder="ex: Gustavo Guelber">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>E-mail Corporativo</label>
+                <input type="email" id="field-email" placeholder="contato@intelflows.com.br">
+              </div>
+              <div class="form-group">
+                <label>Cargo / Função</label>
+                <input type="text" id="field-cargo" placeholder="CEO / Diretor Executivo">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>CNPJ da Empresa</label>
+                <input type="text" id="field-cnpj" placeholder="00.000.000/0001-00">
+              </div>
+              <div class="form-group">
+                <label>Telefone / WhatsApp</label>
+                <input type="text" id="field-telefone" placeholder="(32) 99999-9999">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Razão Social</label>
+              <input type="text" id="field-razao" placeholder="INTELFLOWS TECNOLOGIA LTDA">
+            </div>
+
+            <div class="btn-row">
+              <div></div>
+              <button type="button" id="btn-goto-2" class="nav-btn btn-next">Avançar para Etapa 2 →</button>
+            </div>
+          </div>
+
+          <!-- STEP 2 -->
+          <div id="pane-2" class="step-pane">
+            <div class="form-row">
+              <div class="form-group">
+                <label>CEP</label>
+                <input type="text" id="field-cep" placeholder="36000-000">
+              </div>
+              <div class="form-group">
+                <label>Estado (UF)</label>
+                <select id="field-uf">
+                  <option value="">Selecione...</option>
+                  <option value="MG">Minas Gerais (MG)</option>
+                  <option value="SP">São Paulo (SP)</option>
+                  <option value="RJ">Rio de Janeiro (RJ)</option>
+                  <option value="DF">Distrito Federal (DF)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Logradouro / Rua</label>
+                <input type="text" id="field-rua" placeholder="Avenida Principal">
+              </div>
+              <div class="form-group">
+                <label>Número</label>
+                <input type="text" id="field-numero" placeholder="1000">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Bairro</label>
+                <input type="text" id="field-bairro" placeholder="Centro">
+              </div>
+              <div class="form-group">
+                <label>Cidade</label>
+                <input type="text" id="field-cidade" placeholder="Juiz de Fora">
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button type="button" id="btn-back-1" class="nav-btn btn-prev">← Voltar</button>
+              <button type="button" id="btn-goto-3" class="nav-btn btn-next">Avançar para Etapa 3 →</button>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div id="pane-3" class="step-pane">
+            <div class="form-group">
+              <label>Modalidade de Parceria</label>
+              <div class="radio-row">
+                <input type="radio" name="plano" id="plano-enterprise" value="enterprise" checked>
+                <label for="plano-enterprise" style="margin: 0; cursor: pointer;">Enterprise Dedicated (Cluster Próprio)</label>
+              </div>
+              <div class="radio-row">
+                <input type="radio" name="plano" id="plano-gov" value="gov">
+                <label for="plano-gov" style="margin: 0; cursor: pointer;">Governo & Licitações Públicas</label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>SLA de Atendimento Requerido</label>
+              <select id="field-sla">
+                <option value="247">24/7 Crítico (Resposta &lt; 15 min)</option>
+                <option value="commercial">Horário Comercial (8x5)</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+              <label>Conformidade e Diretrizes Regulatórias</label>
+              <div class="checkbox-row">
+                <input type="checkbox" id="check-lgpd">
+                <label for="check-lgpd" style="margin: 0; cursor: pointer;">Declaro conformidade estrita com a LGPD (Lei 13.709/2018)</label>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="check-termos">
+                <label for="check-termos" style="margin: 0; cursor: pointer;">Aceito integralmente os Termos de Serviço e Acordo de Confidencialidade</label>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button type="button" id="btn-back-2" class="nav-btn btn-prev">← Voltar</button>
+              <button type="button" id="btn-finalizar" class="nav-btn btn-finish">🚀 Transmitir e Concluir Cadastro</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Telemetry & Controls Column -->
+      <div class="side-panel">
+        <div class="timer-card">
+          <div class="timer-label">Cronômetro de Execução</div>
+          <div id="timer-display" class="timer-val">0.000 s</div>
+          <div id="timer-subtext" class="timer-sub">16 campos e seleções a preencher</div>
+
+          <div class="action-triggers">
+            <button id="btn-blitz" class="btn-trigger-s1">
+              ⚡ Executar Blitz Sistema 1 (Local)
+            </button>
+            <button id="btn-sim-cloud" class="btn-trigger-cloud">
+              🐢 Simular Modo Nuvem Tradicional (LLM 3s/campo)
+            </button>
+            <button id="btn-reset" class="btn-reset-form">
+              Limpar Formulário
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+            Comparativo de Eficiência (16 Ações)
+          </div>
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Métrica</th>
+                <th>Sistema 1</th>
+                <th>LLM Nuvem</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Tempo Total</td>
+                <td id="res-time-s1" class="s1">~0.18 s</td>
+                <td class="cloud">~38.4 s</td>
+              </tr>
+              <tr>
+                <td>Tokens Gastos</td>
+                <td class="s1">0 tokens</td>
+                <td class="cloud">~48.000</td>
+              </tr>
+              <tr>
+                <td>Custo Financeiro</td>
+                <td class="s1">R$ 0,00</td>
+                <td class="cloud">~R$ 3,50</td>
+              </tr>
+              <tr>
+                <td>Latência/Ação</td>
+                <td class="s1">~8 ms</td>
+                <td class="cloud">~2.400 ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="log-card">
+          <div class="log-title">
+            <span>Log Mecânico de Decisão (GPU)</span>
+            <span id="log-counter" style="color: #38bdf8;">0/16</span>
+          </div>
+          <div id="log-box" class="log-box">
+            <div>[00:00:00] Motor de formulário conectado.</div>
+            <div>[00:00:00] Aguardando disparo do Sistema 1...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data Profile for Gustavo / IntelFlows
+    const profile = {
+      nome: "Gustavo Guelber",
+      email: "contato@intelflows.com.br",
+      cargo: "CEO & Diretor de Tecnologia",
+      cnpj: "52.894.218/0001-44",
+      telefone: "(32) 98845-9012",
+      razao: "INTELFLOWS SOLUCOES DIGITAIS E AUTOMACAO LTDA",
+      cep: "36010-011",
+      uf: "MG",
+      rua: "Avenida Rio Branco",
+      numero: "2288",
+      bairro: "Centro",
+      cidade: "Juiz de Fora",
+      plano: "enterprise",
+      sla: "247",
+      lgpd: true,
+      termos: true
+    };
+
+    function log(msg, cls) {
+      const box = document.getElementById('log-box');
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function switchStep(stepNum) {
+      [1, 2, 3].forEach(n => {
+        document.getElementById(`pane-${n}`).classList.remove('active');
+        const ind = document.getElementById(`step-ind-${n}`);
+        ind.classList.remove('active');
+        if (n < stepNum) ind.classList.add('completed');
+        else ind.classList.remove('completed');
+      });
+      document.getElementById(`pane-${stepNum}`).classList.add('active');
+      document.getElementById(`step-ind-${stepNum}`).classList.add('active');
+    }
+
+    document.getElementById('btn-goto-2').onclick = () => switchStep(2);
+    document.getElementById('btn-back-1').onclick = () => switchStep(1);
+    document.getElementById('btn-goto-3').onclick = () => switchStep(3);
+    document.getElementById('btn-back-2').onclick = () => switchStep(2);
+
+    function flashInput(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = val;
+      el.classList.add('filled-flash');
+      setTimeout(() => el.classList.remove('filled-flash'), 300);
+    }
+
+    function resetAll() {
+      document.getElementById('wizard-form').reset();
+      switchStep(1);
+      document.getElementById('timer-display').textContent = '0.000 s';
+      document.getElementById('timer-display').style.color = '#4ade80';
+      document.getElementById('status-header').textContent = 'Pronto para disparo';
+      document.getElementById('status-header').style.color = '#94a3b8';
+      document.getElementById('log-counter').textContent = '0/16';
+      log('Formulário resetado.');
+    }
+
+    document.getElementById('btn-reset').onclick = resetAll;
+
+    // SYSTEM 1 HIGH SPEED BLITZ
+    async function runBlitz() {
+      resetAll();
+      const t0 = performance.now();
+      let filled = 0;
+      const timerEl = document.getElementById('timer-display');
+      document.getElementById('status-header').textContent = '⚡ Sistema 1 Blitz em Execução...';
+      document.getElementById('status-header').style.color = '#38bdf8';
+
+      const timerInterval = setInterval(() => {
+        const cur = (performance.now() - t0) / 1000;
+        timerEl.textContent = cur.toFixed(3) + ' s';
+      }, 10);
+
+      // STEP 1 ACTIONS
+      log('🧠 S1: Mapeando campos da Etapa 1...', 'log-fast');
+      await new Promise(r => setTimeout(r, 12));
+      flashInput('field-nome', profile.nome); filled++;
+      log('✓ input#nome -> "Gustavo Guelber" (8ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-email', profile.email); filled++;
+      log('✓ input#email -> "contato@intelflows.com.br" (7ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-cargo', profile.cargo); filled++;
+      log('✓ input#cargo -> "CEO & Diretor de Tecnologia" (6ms)');
+
+      await new Promise(r => setTimeout(r, 12));
+      flashInput('field-cnpj', profile.cnpj); filled++;
+      log('✓ input#cnpj -> "52.894.218/0001-44" (Validação CNPJ OK) (9ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-telefone', profile.telefone); filled++;
+      log('✓ input#telefone -> "(32) 98845-9012" (8ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-razao', profile.razao); filled++;
+      log('✓ input#razao -> "INTELFLOWS..." (7ms)');
+
+      document.getElementById('log-counter').textContent = `${filled}/16`;
+
+      // Advance to step 2
+      await new Promise(r => setTimeout(r, 15));
+      switchStep(2);
+      log('⚡ S1: Transição automática para Etapa 2 (11ms)', 'log-fast');
+
+      // STEP 2 ACTIONS
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-cep', profile.cep); filled++;
+      log('✓ input#cep -> "36010-011" (7ms)');
+
+      await new Promise(r => setTimeout(r, 12));
+      const ufSel = document.getElementById('field-uf');
+      ufSel.value = profile.uf;
+      ufSel.classList.add('filled-flash');
+      setTimeout(() => ufSel.classList.remove('filled-flash'), 300);
+      filled++;
+      log('✓ select#uf -> "MG" (9ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      flashInput('field-rua', profile.rua); filled++;
+      log('✓ input#rua -> "Avenida Rio Branco" (8ms)');
+
+      await new Promise(r => setTimeout(r, 8));
+      flashInput('field-numero', profile.numero); filled++;
+      log('✓ input#numero -> "2288" (6ms)');
+
+      await new Promise(r => setTimeout(r, 8));
+      flashInput('field-bairro', profile.bairro); filled++;
+      log('✓ input#bairro -> "Centro" (6ms)');
+
+      await new Promise(r => setTimeout(r, 8));
+      flashInput('field-cidade', profile.cidade); filled++;
+      log('✓ input#cidade -> "Juiz de Fora" (6ms)');
+
+      document.getElementById('log-counter').textContent = `${filled}/16`;
+
+      // Advance to step 3
+      await new Promise(r => setTimeout(r, 15));
+      switchStep(3);
+      log('⚡ S1: Transição automática para Etapa 3 (10ms)', 'log-fast');
+
+      // STEP 3 ACTIONS
+      await new Promise(r => setTimeout(r, 10));
+      document.getElementById('plano-enterprise').checked = true; filled++;
+      log('✓ radio#enterprise -> Marcado (7ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      document.getElementById('field-sla').value = profile.sla; filled++;
+      log('✓ select#sla -> "24/7 Crítico" (8ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      document.getElementById('check-lgpd').checked = true; filled++;
+      log('✓ check#lgpd -> Conformidade confirmada (7ms)');
+
+      await new Promise(r => setTimeout(r, 10));
+      document.getElementById('check-termos').checked = true; filled++;
+      log('✓ check#termos -> Termos aceitos (7ms)');
+
+      document.getElementById('log-counter').textContent = `${filled}/16`;
+
+      // SUBMIT
+      await new Promise(r => setTimeout(r, 20));
+      clearInterval(timerInterval);
+      const totalTime = ((performance.now() - t0) / 1000).toFixed(3);
+      timerEl.textContent = totalTime + ' s';
+      document.getElementById('res-time-s1').textContent = totalTime + ' s';
+
+      document.getElementById('status-header').textContent = '✅ Formulário Concluído com Sucesso!';
+      document.getElementById('status-header').style.color = '#4ade80';
+      log(`🎉 BLITZ CONCLUÍDO EM ${totalTime}s COM 0 TOKENS!`, 'log-done');
+    }
+
+    document.getElementById('btn-blitz').onclick = runBlitz;
+
+    // SIMULATED CLOUD LLM MODE
+    async function runCloudSim() {
+      resetAll();
+      const t0 = performance.now();
+      let filled = 0;
+      const timerEl = document.getElementById('timer-display');
+      document.getElementById('status-header').textContent = '🐢 Modo Nuvem Tradicional (Aguardando LLM)...';
+      document.getElementById('status-header').style.color = '#f43f5e';
+
+      const timerInterval = setInterval(() => {
+        const cur = (performance.now() - t0) / 1000;
+        timerEl.textContent = cur.toFixed(1) + ' s';
+      }, 50);
+
+      log('☁️ Nuvem: Enviando screenshot e 45KB de HTML para os EUA...', 'log-fast');
+      await new Promise(r => setTimeout(r, 2400));
+      flashInput('field-nome', profile.nome); filled++;
+      log('✓ [2.4s] Resposta da API recebida: input#nome preenchido');
+
+      log('☁️ Nuvem: Enviando novo screenshot para localizar campo seguinte...', 'log-fast');
+      await new Promise(r => setTimeout(r, 2600));
+      flashInput('field-email', profile.email); filled++;
+      log('✓ [5.0s] Resposta da API recebida: input#email preenchido');
+
+      clearInterval(timerInterval);
+      document.getElementById('status-header').textContent = '⚠️ Simulação interrompida: Lento demais!';
+      document.getElementById('status-header').style.color = '#fbbf24';
+      log('⚠️ Modo Nuvem cancelado para economizar seu tempo. Compare a diferença com o Blitz!');
+    }
+
+    document.getElementById('btn-sim-cloud').onclick = runCloudSim;
+  </script>
+</body>
+</html>

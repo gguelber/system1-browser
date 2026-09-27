@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>system1-browser // Snake Real-Time System-1 Benchmark v2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d16;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 860px;
+      max-width: 100%;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      background: #0284c7;
+      color: #e0f2fe;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .badge-gpu {
+      background: #15803d;
+      color: #dcfce7;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      background: #0f172a;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      margin-bottom: 16px;
+    }
+    .metric {
+      display: flex;
+      flex-direction: column;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .metric-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f8fafc;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-val.green { color: #4ade80; }
+    .metric-val.blue { color: #38bdf8; }
+    .metric-val.amber { color: #fbbf24; }
+    .metric-val.rose { color: #f43f5e; }
+    .metric-val.purple { color: #c084fc; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 20px;
+    }
+    .canvas-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .canvas-wrapper {
+      position: relative;
+      width: 360px;
+      height: 360px;
+    }
+    canvas {
+      background: #050811;
+      border: 2px solid #1e293b;
+      border-radius: 6px;
+      display: block;
+      transition: border-color 0.2s;
+    }
+    canvas.collision-flash {
+      border-color: #f43f5e !important;
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+    }
+    .death-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(4px);
+      border-radius: 6px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 10;
+    }
+    .death-overlay.active {
+      display: flex;
+    }
+    .death-title {
+      color: #f43f5e;
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .death-reason {
+      color: #cbd5e1;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .death-countdown {
+      font-size: 12px;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      width: 100%;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-start { background: #38bdf8; color: #090d16; }
+    .btn-start:hover { background: #0ea5e9; }
+    .btn-start:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-stop:hover { background: #dc2626; }
+    .btn-stop:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
+    .btn-reset { background: #334155; color: #f8fafc; }
+    .btn-reset:hover { background: #475569; }
+
+    .speed-control {
+      margin-top: 12px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1e293b;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .speed-control select {
+      background: #090d16;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .prob-name { width: 50px; font-weight: 700; color: #cbd5e1; }
+    .prob-track {
+      flex: 1;
+      height: 10px;
+      background: #1e293b;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .prob-fill {
+      height: 100%;
+      width: 0%;
+      background: #334155;
+      border-radius: 5px;
+      transition: width 0.05s ease-out, background 0.05s;
+    }
+    .prob-fill.active { background: #38bdf8; }
+    .prob-val { width: 45px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .reason-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .reason-icon { font-size: 16px; }
+
+    .terminal-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #94a3b8;
+      height: 115px;
+      overflow-y: auto;
+    }
+    .term-success { color: #4ade80; }
+    .term-danger { color: #f43f5e; font-weight: 700; }
+    .term-highlight { color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <span>⚡ system1-browser // Snake Real-Time AI</span>
+        <span class="badge">Strict Physics v2</span>
+        <span class="badge-gpu">RTX 3090 Local</span>
+      </div>
+      <div id="status-badge" style="font-size: 12px; color: #94a3b8; font-weight: 600;">Pronto para iniciar</div>
+    </div>
+
+    <div class="metrics-bar">
+      <div class="metric">
+        <span class="metric-label">Pontuação</span>
+        <span id="score-val" class="metric-val green">0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Recorde (High)</span>
+        <span id="high-score-val" class="metric-val purple">0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Mortes / Colisões</span>
+        <span id="deaths-val" class="metric-val rose">0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Passos Sistema 1</span>
+        <span id="steps-val" class="metric-val blue">0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Latência do Coprocessador</span>
+        <span id="latency-val" class="metric-val amber">0 ms</span>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="canvas-card">
+        <div class="canvas-wrapper">
+          <canvas id="canvas" width="360" height="360"></canvas>
+          <div id="death-overlay" class="death-overlay">
+            <div class="death-title">💥 GAME OVER</div>
+            <div id="death-reason" class="death-reason">Colisão detectada</div>
+            <div id="death-countdown" class="death-countdown">Reiniciando em 2s...</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="btn-start" class="btn-start">Iniciar AI</button>
+          <button id="btn-stop" class="btn-stop" disabled>Pausar</button>
+          <button id="btn-reset" class="btn-reset">Reset</button>
+        </div>
+
+        <div class="speed-control">
+          <span>Velocidade de Execução:</span>
+          <select id="speed-select">
+            <option value="90">Normal (11 fps)</option>
+            <option value="45" selected>Rápido (22 fps)</option>
+            <option value="20">Turbo (50 fps)</option>
+            <option value="8">Insano (120 fps)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="card">
+          <div class="card-title">
+            <span>Probabilidades em Tempo Real (Sistema 1)</span>
+            <span id="chosen-dir-badge" style="color: #38bdf8; font-weight: 800;">--</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-name">UP</span>
+            <div class="prob-track"><div id="bar-up" class="prob-fill"></div></div>
+            <span id="val-up" class="prob-val">0%</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-name">DOWN</span>
+            <div class="prob-track"><div id="bar-down" class="prob-fill"></div></div>
+            <span id="val-down" class="prob-val">0%</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-name">LEFT</span>
+            <div class="prob-track"><div id="bar-left" class="prob-fill"></div></div>
+            <span id="val-left" class="prob-val">0%</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-name">RIGHT</span>
+            <div class="prob-track"><div id="bar-right" class="prob-fill"></div></div>
+            <span id="val-right" class="prob-val">0%</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Diagnóstico de Decisão Local (Sem Nuvem)</div>
+          <div class="reason-box">
+            <span class="reason-icon">🧠</span>
+            <span id="reason-text">Aguardando início do modelo na GPU...</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Log de Telemetria</div>
+          <div id="terminal" class="terminal-box">
+            <div>[00:00:00] Motor de Sistema 1 conectado ao navegador.</div>
+            <div>[00:00:00] Regras estritas de colisão física ATIVADAS.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const GRID_SIZE = 18;
+    const TILE_COUNT = canvas.width / GRID_SIZE;
+
+    let snake = [{ x: 9, y: 9 }, { x: 9, y: 10 }, { x: 9, y: 11 }];
+    let food = { x: 5, y: 5 };
+    let direction = 'up';
+    let running = false;
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('snake_s1_high') || '0', 10);
+    let deaths = 0;
+    let steps = 0;
+    let inFlight = false;
+    let tickSpeed = 45;
+
+    document.getElementById('high-score-val').textContent = highScore;
+
+    document.getElementById('speed-select').onchange = (e) => {
+      tickSpeed = parseInt(e.target.value, 10);
+    };
+
+    function resetFood() {
+      const occupied = new Set(snake.map(s => `${s.x},${s.y}`));
+      let attempts = 0;
+      while (attempts < 200) {
+        const nx = Math.floor(Math.random() * TILE_COUNT);
+        const ny = Math.floor(Math.random() * TILE_COUNT);
+        if (!occupied.has(`${nx},${ny}`)) {
+          food = { x: nx, y: ny };
+          return;
+        }
+        attempts++;
+      }
+      food = { x: 0, y: 0 };
+    }
+
+    function draw() {
+      ctx.fillStyle = '#050811';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid lines
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < canvas.width; i += GRID_SIZE) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+      }
+
+      // Draw Food with glow
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#f43f5e';
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(food.x * GRID_SIZE + GRID_SIZE/2, food.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Draw Snake
+      snake.forEach((segment, idx) => {
+        if (idx === 0) {
+          // Head
+          ctx.fillStyle = '#38bdf8';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#38bdf8';
+          ctx.fillRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+          ctx.shadowBlur = 0;
+
+          // Eyes
+          ctx.fillStyle = '#090d16';
+          let ex1 = segment.x * GRID_SIZE + 4, ey1 = segment.y * GRID_SIZE + 4;
+          let ex2 = segment.x * GRID_SIZE + GRID_SIZE - 6, ey2 = segment.y * GRID_SIZE + 4;
+          if (direction === 'down') {
+            ey1 = segment.y * GRID_SIZE + GRID_SIZE - 6;
+            ey2 = segment.y * GRID_SIZE + GRID_SIZE - 6;
+          } else if (direction === 'left') {
+            ex1 = segment.x * GRID_SIZE + 4; ey1 = segment.y * GRID_SIZE + 4;
+            ex2 = segment.x * GRID_SIZE + 4; ey2 = segment.y * GRID_SIZE + GRID_SIZE - 6;
+          } else if (direction === 'right') {
+            ex1 = segment.x * GRID_SIZE + GRID_SIZE - 6; ey1 = segment.y * GRID_SIZE + 4;
+            ex2 = segment.x * GRID_SIZE + GRID_SIZE - 6; ey2 = segment.y * GRID_SIZE + GRID_SIZE - 6;
+          }
+          ctx.fillRect(ex1, ey1, 2, 2);
+          ctx.fillRect(ex2, ey2, 2, 2);
+        } else {
+          // Body gradient
+          const factor = Math.max(0.3, 1 - (idx / snake.length));
+          ctx.fillStyle = idx % 2 === 0 ? '#0284c7' : '#0369a1';
+          ctx.fillRect(segment.x * GRID_SIZE + 1.5, segment.y * GRID_SIZE + 1.5, GRID_SIZE - 3, GRID_SIZE - 3);
+        }
+      });
+    }
+
+    function logTerm(msg, cls) {
+      const term = document.getElementById('terminal');
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function updateBars(probs, chosen) {
+      ['up', 'down', 'left', 'right'].forEach(dir => {
+        const p = probs[dir] || 0;
+        const pct = Math.round(p * 100);
+        const bar = document.getElementById(`bar-${dir}`);
+        const val = document.getElementById(`val-${dir}`);
+        bar.style.width = `${pct}%`;
+        val.textContent = `${pct}%`;
+        if (dir === chosen) {
+          bar.className = 'prob-fill active';
+        } else {
+          bar.className = 'prob-fill';
+        }
+      });
+      document.getElementById('chosen-dir-badge').textContent = `DECISÃO: ${chosen.toUpperCase()}`;
+    }
+
+    function handleDeath(reason) {
+      deaths++;
+      document.getElementById('deaths-val').textContent = deaths;
+      logTerm(`💥 MORTE: ${reason}`, 'term-danger');
+
+      canvas.classList.add('collision-flash');
+      const overlay = document.getElementById('death-overlay');
+      document.getElementById('death-reason').textContent = reason;
+      overlay.classList.add('active');
+
+      running = false;
+      document.getElementById('status-badge').textContent = '💥 Colisão Fatal!';
+      document.getElementById('status-badge').style.color = '#f43f5e';
+
+      let count = 2;
+      document.getElementById('death-countdown').textContent = `Reiniciando em ${count}s...`;
+      const timer = setInterval(() => {
+        count--;
+        if (count > 0) {
+          document.getElementById('death-countdown').textContent = `Reiniciando em ${count}s...`;
+        } else {
+          clearInterval(timer);
+          overlay.classList.remove('active');
+          canvas.classList.remove('collision-flash');
+          resetGame();
+          // Auto restart
+          running = true;
+          document.getElementById('status-badge').textContent = '🟢 AI em Execução';
+          document.getElementById('status-badge').style.color = '#4ade80';
+          stepAI();
+        }
+      }, 700);
+    }
+
+    function resetGame() {
+      snake = [{ x: 9, y: 9 }, { x: 9, y: 10 }, { x: 9, y: 11 }];
+      resetFood();
+      score = 0;
+      direction = 'up';
+      document.getElementById('score-val').textContent = 0;
+      draw();
+    }
+
+    async function stepAI() {
+      if (!running || inFlight) return;
+      inFlight = true;
+
+      const head = snake[0];
+      const payload = {
+        head: head,
+        food: food,
+        snake: snake,
+        current_direction: direction,
+        tile_count: TILE_COUNT
+      };
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/api/step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const latency = performance.now() - t0;
+
+        document.getElementById('latency-val').textContent = `${Math.round(latency)} ms`;
+        document.getElementById('reason-text').textContent = data.reason || 'Navegando';
+        updateBars(data.probabilities, data.direction);
+
+        // Move
+        direction = data.direction;
+        let nx = head.x;
+        let ny = head.y;
+        if (direction === 'up') ny--;
+        if (direction === 'down') ny++;
+        if (direction === 'left') nx--;
+        if (direction === 'right') nx++;
+
+        // STRICT COLLISION CHECK 1: Wall collision
+        if (nx < 0 || nx >= TILE_COUNT || ny < 0 || ny >= TILE_COUNT) {
+          handleDeath(`Bateu na parede (${nx}, ${ny})`);
+          inFlight = false;
+          return;
+        }
+
+        // STRICT COLLISION CHECK 2: Self collision (any body segment)
+        const hitSelf = snake.slice(0, -1).some(seg => seg.x === nx && seg.y === ny);
+        if (hitSelf) {
+          handleDeath(`Bateu no próprio corpo em (${nx}, ${ny})!`);
+          inFlight = false;
+          return;
+        }
+
+        // Move forward
+        snake.unshift({ x: nx, y: ny });
+
+        // Food eaten?
+        if (nx === food.x && ny === food.y) {
+          score += 10;
+          document.getElementById('score-val').textContent = score;
+          if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('snake_s1_high', highScore);
+            document.getElementById('high-score-val').textContent = highScore;
+          }
+          logTerm(`🎯 Maçã capturada! Pontuação: ${score}`, 'term-success');
+          resetFood();
+        } else {
+          snake.pop();
+        }
+
+        steps++;
+        document.getElementById('steps-val').textContent = steps;
+        draw();
+
+      } catch (err) {
+        console.error(err);
+      } finally {
+        inFlight = false;
+        if (running) {
+          setTimeout(stepAI, tickSpeed);
+        }
+      }
+    }
+
+    document.getElementById('btn-start').onclick = () => {
+      running = true;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-stop').disabled = false;
+      document.getElementById('status-badge').textContent = '🟢 AI em Execução';
+      document.getElementById('status-badge').style.color = '#4ade80';
+      logTerm('Jogo iniciado com Sistema 1 na GPU.', 'term-highlight');
+      stepAI();
+    };
+
+    document.getElementById('btn-stop').onclick = () => {
+      running = false;
+      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-stop').disabled = true;
+      document.getElementById('status-badge').textContent = '🟡 Pausado';
+      document.getElementById('status-badge').style.color = '#fbbf24';
+      logTerm('Jogo pausado.');
+    };
+
+    document.getElementById('btn-reset').onclick = () => {
+      running = false;
+      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-stop').disabled = true;
+      document.getElementById('death-overlay').classList.remove('active');
+      canvas.classList.remove('collision-flash');
+      resetGame();
+      steps = 0;
+      document.getElementById('steps-val').textContent = 0;
+      document.getElementById('latency-val').textContent = '0 ms';
+      document.getElementById('reason-text').textContent = 'Reiniciado com sucesso';
+      logTerm('Jogo reiniciado.');
+    };
+
+    resetFood();
+    draw();
+  </script>
+</body>
+</html>
