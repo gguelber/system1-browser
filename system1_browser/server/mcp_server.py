@@ -47,7 +47,7 @@ def get_shared_runner(backend: str = "julia") -> SubgoalRunner:
     return _runner
 
 @mcp.tool()
-def system1_browser_subgoal(
+async def system1_browser_subgoal(
     goal: str,
     max_steps: int = 8,
     backend: Literal["julia", "eikos", "auto"] = "julia"
@@ -57,63 +57,51 @@ def system1_browser_subgoal(
     Resolve seletores, cliques e preenchimentos localmente sem gastar tokens de nuvem.
     """
     runner = get_shared_runner(backend=backend)
-    result = asyncio.run(runner.run(goal=goal, max_steps=max_steps))
+    result = await runner.run(goal=goal, max_steps=max_steps)
     return result.model_dump()
 
 @mcp.tool()
-def system1_browser_inspect() -> Dict[str, Any]:
+async def system1_browser_inspect() -> Dict[str, Any]:
     """
     Inspeciona a aba ativa do Chrome e retorna uma representação ultracompacta
     do DOM (~250 tokens) com apenas os elementos interativos numerados [0..N].
     Mantém a conexão persistente ativa.
     """
     cdp = get_shared_cdp()
-    async def _inspect():
-        if not cdp.ws or cdp.ws.closed:
-            await cdp.connect()
-        await cdp.attach_active_page()
-        state = await cdp.extract_pruned_state()
-        return state.model_dump()
-
-    return asyncio.run(_inspect())
+    await cdp.ensure_connected()
+    await cdp.attach_active_page()
+    state = await cdp.extract_pruned_state()
+    return state.model_dump()
 
 @mcp.tool()
-def system1_browser_click(element_id: int) -> Dict[str, Any]:
+async def system1_browser_click(element_id: int) -> Dict[str, Any]:
     """
     Clica instantaneamente em um elemento da página identificado pelo ID [0..N] via CDP persistente.
     """
     cdp = get_shared_cdp()
-    async def _click():
-        if not cdp.ws or cdp.ws.closed:
-            await cdp.connect()
-        await cdp.attach_active_page()
-        state = await cdp.extract_pruned_state()
-        elem = next((e for e in state.elements if e.id == element_id), None)
-        if not elem:
-            return {"success": False, "error": f"Elemento ID {element_id} não encontrado."}
-        await cdp.click_element(elem)
-        return {"success": True, "clicked": elem.model_dump()}
-
-    return asyncio.run(_click())
+    await cdp.ensure_connected()
+    await cdp.attach_active_page()
+    state = await cdp.extract_pruned_state()
+    elem = next((e for e in state.elements if e.id == element_id), None)
+    if not elem:
+        return {"success": False, "error": f"Elemento ID {element_id} não encontrado."}
+    await cdp.click_element(elem)
+    return {"success": True, "clicked": elem.model_dump()}
 
 @mcp.tool()
-def system1_browser_type(element_id: int, text: str) -> Dict[str, Any]:
+async def system1_browser_type(element_id: int, text: str) -> Dict[str, Any]:
     """
     Digita um texto instantaneamente em um input da página identificado pelo ID [0..N] via CDP persistente.
     """
     cdp = get_shared_cdp()
-    async def _type():
-        if not cdp.ws or cdp.ws.closed:
-            await cdp.connect()
-        await cdp.attach_active_page()
-        state = await cdp.extract_pruned_state()
-        elem = next((e for e in state.elements if e.id == element_id), None)
-        if not elem:
-            return {"success": False, "error": f"Elemento ID {element_id} não encontrado."}
-        await cdp.type_element(elem, text)
-        return {"success": True, "typed": text, "element": elem.model_dump()}
-
-    return asyncio.run(_type())
+    await cdp.ensure_connected()
+    await cdp.attach_active_page()
+    state = await cdp.extract_pruned_state()
+    elem = next((e for e in state.elements if e.id == element_id), None)
+    if not elem:
+        return {"success": False, "error": f"Elemento ID {element_id} não encontrado."}
+    await cdp.type_element(elem, text)
+    return {"success": True, "typed": text, "element": elem.model_dump()}
 
 def main():
     # Pre-warm engine on daemon startup

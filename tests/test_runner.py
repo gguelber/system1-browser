@@ -9,6 +9,7 @@ from system1_browser.core.runner import SubgoalRunner
 def test_runner_mock_flow():
     mock_cdp = MagicMock()
     mock_cdp.connect = AsyncMock()
+    mock_cdp.ensure_connected = AsyncMock()
     mock_cdp.close = AsyncMock()
     mock_cdp.attach_active_page = AsyncMock()
     mock_cdp.click_element = AsyncMock()

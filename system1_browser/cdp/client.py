@@ -58,11 +58,26 @@ class CDPClient:
         return f"ws://{self.host}:{port}/devtools/browser"
 
     async def connect(self):
-        """Establishes WebSocket connection to Chrome."""
+        """Establishes a persistent WebSocket connection to Chrome."""
+        if self.ws is not None and not self.ws.closed:
+            return
         self.ws_url = self._discover_chrome_endpoint()
         logger.info(f"Connecting to Chrome CDP at: {self.ws_url}")
-        self.ws = await websockets.connect(self.ws_url, max_size=20 * 1024 * 1024)
+        logger.info("⏳ Aguardando aprovação no Chrome (clique em 'Permitir' no navegador)...")
+        self.ws = await websockets.connect(
+            self.ws_url,
+            max_size=20 * 1024 * 1024,
+            open_handshake_timeout=None,  # Aguarda pacientemente você clicar em "Permitir"
+            ping_interval=20.0,
+            ping_timeout=20.0
+        )
         self._receive_task = asyncio.create_task(self._listen_loop())
+        logger.info("✅ Conexão CDP persistente autorizada e estabelecida com sucesso.")
+
+    async def ensure_connected(self):
+        """Ensures the CDP connection is open and active without recreating it unnecessarily."""
+        if self.ws is None or self.ws.closed:
+            await self.connect()
 
     async def close(self):
         """Closes the CDP connection cleanly."""
@@ -70,6 +85,7 @@ class CDPClient:
             self._receive_task.cancel()
         if self.ws:
             await self.ws.close()
+            self.ws = None
 
     async def _listen_loop(self):
         """Background loop handling incoming CDP messages."""

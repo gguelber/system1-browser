@@ -179,7 +179,7 @@ class SubgoalRunner:
         start_time = time.time()
         history: List[StepRecord] = []
         
-        await self.cdp.connect()
+        await self.cdp.ensure_connected()
         try:
             await self.cdp.attach_active_page()
             
