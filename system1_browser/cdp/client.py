@@ -67,7 +67,7 @@ class CDPClient:
         self.ws = await websockets.connect(
             self.ws_url,
             max_size=20 * 1024 * 1024,
-            open_handshake_timeout=None,  # Aguarda pacientemente você clicar em "Permitir"
+            open_timeout=None,  # Aguarda indefinidamente a aprovação no Chrome
             ping_interval=20.0,
             ping_timeout=20.0
         )
@@ -114,7 +114,7 @@ class CDPClient:
         }
         
         active_session = session_id or self._current_session_id
-        if active_session:
+        if active_session and not method.startswith("Target."):
             payload["sessionId"] = active_session
 
         loop = asyncio.get_running_loop()
@@ -136,18 +136,34 @@ class CDPClient:
 
     async def attach_page(self, target_id: str) -> str:
         """Attaches to a specific page target and stores the session ID."""
+        if self._current_session_id:
+            try:
+                await self.send_command("Target.detachFromTarget", {"sessionId": self._current_session_id})
+            except Exception:
+                pass
         res = await self.send_command("Target.attachToTarget", {"targetId": target_id, "flatten": True})
         self._current_session_id = res.get("sessionId")
         return self._current_session_id
 
-    async def attach_active_page(self) -> Dict[str, Any]:
-        """Finds and attaches to the primary active page."""
+    async def attach_active_page(self, url_filter: Optional[str] = None) -> Dict[str, Any]:
+        """Finds and attaches to the target page, optionally filtered by url/title keyword."""
         pages = await self.get_pages()
         if not pages:
             raise RuntimeError("No open browser pages found in Chrome.")
         
-        # Prefer the currently focused or first non-empty page
-        target = pages[0]
+        target = None
+        if url_filter:
+            kw = url_filter.lower()
+            target = next((p for p in reversed(pages) if kw in p.get("url", "").lower() or kw in p.get("title", "").lower()), None)
+        
+        if not target:
+            # Prioritize relevant procurement portals if currently open
+            target = next((p for p in reversed(pages) if "pncp.gov.br" in p.get("url", "") or "comprasnet" in p.get("url", "") or "estaleiro.serpro.gov.br" in p.get("url", "")), None)
+
+        if not target:
+            # Default to the most recently opened/active page
+            target = pages[-1]
+            
         await self.attach_page(target["targetId"])
         return target
 

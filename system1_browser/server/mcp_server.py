@@ -5,6 +5,19 @@ Pre-warms Julia-1 in memory and maintains persistent CDP connection.
 """
 import sys
 import os
+from pathlib import Path
+
+# Ensure repo root and models are in sys.path
+repo_root = str(Path(__file__).resolve().parent.parent.parent)
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
+models_dir = os.path.abspath(os.path.join(repo_root, "..", "charming-newton", "models"))
+for m in ["Julia-1", "Eikos-4B-INT4"]:
+    p = os.path.join(models_dir, m)
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
 import asyncio
 import logging
 from typing import Dict, Any, Optional, Literal
@@ -13,6 +26,7 @@ from fastmcp import FastMCP
 from system1_browser.cdp.client import CDPClient
 from system1_browser.core.runner import SubgoalRunner
 
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger("system1_browser.mcp")
 
 AGENT_INSTRUCTIONS = """
@@ -50,18 +64,19 @@ def get_shared_runner(backend: str = "julia") -> SubgoalRunner:
 async def system1_browser_subgoal(
     goal: str,
     max_steps: int = 8,
-    backend: Literal["julia", "eikos", "auto"] = "julia"
+    backend: Literal["julia", "eikos", "auto"] = "julia",
+    url_filter: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Executa uma sub-meta autônoma no navegador ativo usando o modelo de Sistema 1 pre-aquecido na GPU.
     Resolve seletores, cliques e preenchimentos localmente sem gastar tokens de nuvem.
     """
     runner = get_shared_runner(backend=backend)
-    result = await runner.run(goal=goal, max_steps=max_steps)
+    result = await runner.run(goal=goal, max_steps=max_steps, url_filter=url_filter)
     return result.model_dump()
 
 @mcp.tool()
-async def system1_browser_inspect() -> Dict[str, Any]:
+async def system1_browser_inspect(url_filter: Optional[str] = None) -> Dict[str, Any]:
     """
     Inspeciona a aba ativa do Chrome e retorna uma representação ultracompacta
     do DOM (~250 tokens) com apenas os elementos interativos numerados [0..N].
@@ -69,18 +84,18 @@ async def system1_browser_inspect() -> Dict[str, Any]:
     """
     cdp = get_shared_cdp()
     await cdp.ensure_connected()
-    await cdp.attach_active_page()
+    await cdp.attach_active_page(url_filter=url_filter)
     state = await cdp.extract_pruned_state()
     return state.model_dump()
 
 @mcp.tool()
-async def system1_browser_click(element_id: int) -> Dict[str, Any]:
+async def system1_browser_click(element_id: int, url_filter: Optional[str] = None) -> Dict[str, Any]:
     """
     Clica instantaneamente em um elemento da página identificado pelo ID [0..N] via CDP persistente.
     """
     cdp = get_shared_cdp()
     await cdp.ensure_connected()
-    await cdp.attach_active_page()
+    await cdp.attach_active_page(url_filter=url_filter)
     state = await cdp.extract_pruned_state()
     elem = next((e for e in state.elements if e.id == element_id), None)
     if not elem:
@@ -89,13 +104,13 @@ async def system1_browser_click(element_id: int) -> Dict[str, Any]:
     return {"success": True, "clicked": elem.model_dump()}
 
 @mcp.tool()
-async def system1_browser_type(element_id: int, text: str) -> Dict[str, Any]:
+async def system1_browser_type(element_id: int, text: str, url_filter: Optional[str] = None) -> Dict[str, Any]:
     """
     Digita um texto instantaneamente em um input da página identificado pelo ID [0..N] via CDP persistente.
     """
     cdp = get_shared_cdp()
     await cdp.ensure_connected()
-    await cdp.attach_active_page()
+    await cdp.attach_active_page(url_filter=url_filter)
     state = await cdp.extract_pruned_state()
     elem = next((e for e in state.elements if e.id == element_id), None)
     if not elem:
@@ -103,14 +118,5 @@ async def system1_browser_type(element_id: int, text: str) -> Dict[str, Any]:
     await cdp.type_element(elem, text)
     return {"success": True, "typed": text, "element": elem.model_dump()}
 
-def main():
-    # Pre-warm engine on daemon startup
-    logger.info("⚡ Pre-warming Julia-1 model into memory...")
-    try:
-        get_shared_runner()
-    except Exception as e:
-        logger.warning(f"Could not pre-warm on startup: {e}")
-    mcp.run()
-
 if __name__ == "__main__":
-    main()
+    mcp.run()

@@ -172,7 +172,7 @@ class SubgoalRunner:
             return with_match.group(1)
         return None
 
-    async def run(self, goal: str, max_steps: int = 8) -> SubgoalResult:
+    async def run(self, goal: str, max_steps: int = 8, url_filter: Optional[str] = None) -> SubgoalResult:
         """
         Executes the autonomous sub-goal loop until completion or escalation.
         """
@@ -181,7 +181,7 @@ class SubgoalRunner:
         
         await self.cdp.ensure_connected()
         try:
-            await self.cdp.attach_active_page()
+            await self.cdp.attach_active_page(url_filter=url_filter)
             
             for step_idx in range(1, max_steps + 1):
                 step_start = time.time()
